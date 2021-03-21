@@ -6,7 +6,7 @@
 
 void v(FILE **tovar, FILE **dodavatelia)
 {
-    *tovar = fopen("tovar.txt", "r");
+    *tovar = fopen("tovar.txt", "r+");
 
     if (*tovar == NULL)
     {
@@ -25,7 +25,7 @@ void v(FILE **tovar, FILE **dodavatelia)
     }
     rewind(*tovar);
 
-    printf("----------------------------------------------------------------------------------------\n----------------------------------------------------------------------------------------\n");
+    printf("----------------------------------------------------------------------------------------\n----------------------------------------------------------------------------------------\n\n");
 
     *dodavatelia = fopen("dodavatelia.txt", "r");
 
@@ -78,13 +78,13 @@ void o(FILE *tovar)
         printf("Tovar s dodavatelom neexistuje\n");
 }
 
-int n(FILE *tovar, FILE *dodavatelia, int *prevSize,
+void n(FILE *tovar, FILE *dodavatelia, int *prevSize,
       char ***nazovTDB, int **pcDB, double **cenaDB, double **hmotnostDB,
       char ***menoDDB, char ***adresaDDB)
 {
 
     if (tovar == NULL || dodavatelia == NULL)
-        return 0;
+        return;
 
     //Memory free based on previous size
     //TODO: control free mechanism
@@ -109,7 +109,7 @@ int n(FILE *tovar, FILE *dodavatelia, int *prevSize,
     int tovarCounter = 0;
     int dodavatelCounter = 0;
 
-    char buffer[50];
+    char buffer[DEFAULT_STRING_SIZE + 1];
     while (fscanf(tovar, "%[^\n]\n%*[^\n]\n%*[^\n]\n%*[^\n]\n%*[^\n]\n", buffer) > 0)
     {
         tovarCounter++;
@@ -123,9 +123,8 @@ int n(FILE *tovar, FILE *dodavatelia, int *prevSize,
     rewind(tovar);
     rewind(dodavatelia);
 
-    //TODO: Theese maybe should be the same
     const int TOVAR_SIZE = tovarCounter;
-    const int DODAV_SIZE = dodavatelCounter;
+    //const int DODAV_SIZE = dodavatelCounter;
 
     //Memory allocation
     *nazovTDB = (char **)malloc(sizeof(char *) * TOVAR_SIZE);
@@ -178,7 +177,7 @@ int n(FILE *tovar, FILE *dodavatelia, int *prevSize,
             {
                 strcpy((*menoDDB)[i], menoD);
                 strcpy((*adresaDDB)[i], adresaD);
-                break;
+                //break;
             }
         }
     }
@@ -201,11 +200,9 @@ int n(FILE *tovar, FILE *dodavatelia, int *prevSize,
     // printf("tovar: %d %d\n", tovarCounter, dodavatelCounter);
 
     free(temp_dodavID);
-
-    return TOVAR_SIZE;
 }
 
-void s(char **nazovTDB, int *pcDB)
+void s(char **nazovTDB, char **menoDDB, int *pcDB, int size)
 {
 
     if (nazovTDB == NULL || pcDB == NULL)
@@ -216,8 +213,15 @@ void s(char **nazovTDB, int *pcDB)
 
     int dodav;
     scanf("%d", &dodav);
+    char *menoDodavatela = menoDDB[dodav - 1];
 
-    printf("%s (%d na sklade)\n", nazovTDB[dodav - 1], pcDB[dodav - 1]);
+    for (int i = 0; i < size; i++)
+    {
+        if (strcmp(menoDodavatela, menoDDB[i]) == 0)
+        {
+            printf("%s (%d na sklade)\n", nazovTDB[i], pcDB[i]);
+        }
+    }
 }
 
 void h(int *pcDB, int size)
@@ -229,8 +233,8 @@ void h(int *pcDB, int size)
         return;
     }
 
-    int histCount[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    int ranges[11] = {0, 10, 20, 30, 40, 50, 60, 70, 80, 90,100};
+    int histCount[10] = {0};
+    int ranges[11] = {0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
 
     for (int i = 0; i < size; i++)
     {
@@ -267,14 +271,132 @@ void h(int *pcDB, int size)
             histCount[9]++;*/
     }
 
-    for(int i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         printf("<%d,%d>: %d\n", ranges[i], ranges[i + 1] - 1, histCount[i]);
     }
 }
 
-void p(){
-    
+void p(FILE *tovar, char **nazovTDB, int **pcDB, double *cenaDB,
+       double *hmotnostDB, int size)
+{
+    char nazov[DEFAULT_STRING_SIZE + 1];
+    int novHod;
+    scanf("%s", nazov);
+    scanf("%d", &novHod);
+
+    if (nazovTDB == NULL || *pcDB == NULL)
+    {
+        printf("Polia nie su vytvorene\n");
+        return;
+    }
+
+    if (tovar == NULL)
+    {
+        printf("Neotvoreny subor\n");
+        return;
+    }
+
+    for (int i = 0; i < size; i++)
+    {
+        if (strcmp(nazovTDB[i], nazov) == 0)
+        {
+            (*pcDB)[i] = novHod;
+            break;
+        }
+    }
+
+    int *tempIDs = malloc(sizeof(int) * size);
+    int count = 0, currID;
+
+    while (fscanf(tovar, "%*[^\n]\n%*[^\n]\n%*[^\n]\n%*[^\n]\n%d\n", &currID) > 0)
+    {
+        tempIDs[count++] = currID;
+    }
+
+    rewind(tovar);
+    for (int i = 0; i < size; i++)
+    {
+        if (i < size - 1)
+            fprintf(tovar, "%s\n%d\n%g\n%g\n%d\n\n", nazovTDB[i], (*pcDB)[i], cenaDB[i], hmotnostDB[i], tempIDs[i]);
+        else
+            fprintf(tovar, "%s\n%d\n%g\n%g\n%d\n", nazovTDB[i], (*pcDB)[i], cenaDB[i], hmotnostDB[i], tempIDs[i]);
+    }
+
+    fflush(tovar);
+
+    rewind(tovar);
+
+    printf("Aktualny poctu kusov na sklade tovaru %s je: %d.\n", nazov, novHod);
+
+    free(tempIDs);
+}
+
+void z(char **nazovTDB, double *hmotnostDB, int size)
+{
+
+    double intMin, intMax;
+    scanf("%lf", &intMin);
+    scanf("%lf", &intMax);
+
+    if (nazovTDB == NULL || hmotnostDB == NULL)
+    {
+        printf("Polia nie su vytvorene\n");
+        return;
+    }
+
+    if (intMin > intMax)
+    {
+        printf("Prve cislo musi byt mensie ako druhe cislo.\n");
+        return;
+    }
+
+    double *orderedHmot = calloc(size, sizeof(double));
+    double *orderedIndex = malloc(sizeof(double) * size);
+
+    int counter = 0;
+
+    //Interval check
+    for (int i = 0; i < size; i++)
+    {
+        double currHmot = hmotnostDB[i];
+
+        if (currHmot >= intMin && currHmot <= intMax)
+        {
+            orderedHmot[counter] = currHmot;
+            orderedIndex[counter] = i;
+            counter++;
+        }
+    }
+
+    //Bubble sort with item count
+    for (int i = 0; i < counter; i++)
+    {
+        for (int j = 0; j < counter - i - 1; j++)
+        {
+            //if(orderedHmot[j] != 0 && orderedHmot[j + 1] == 0)
+            if (orderedHmot[j] > orderedHmot[j + 1])
+            {
+                double temp = orderedHmot[j];
+                int tempId = orderedIndex[j];
+                orderedIndex[j] = orderedIndex[j + 1];
+                orderedIndex[j + 1] = tempId;
+
+                orderedHmot[j] = orderedHmot[j + 1];
+                orderedHmot[j + 1] = temp;
+            }
+        }
+    }
+
+    //Printing to the console
+    for (int i = 0; i < counter; i++)
+    {
+        int index = orderedIndex[i];
+        printf("%s\n", nazovTDB[index]);
+    }
+
+    free(orderedHmot);
+    free(orderedIndex);
 }
 
 int main()
@@ -289,10 +411,40 @@ int main()
 
     int prevSize = 0;
 
-    v(&tovar, &dodavatelia);
-
-    //o(tovar);
-    n(tovar, dodavatelia, &prevSize, &nazovTDB, &pcDB, &cenaDB, &hmotnostDB, &menoDDB, &adresaDDB);
+    char input;
+    int exit = 0;
+    while (!exit)
+    {
+        scanf("%c", &input);
+        fflush(stdin);
+        switch (input)
+        {
+        case 'v':
+            v(&tovar, &dodavatelia);
+            break;
+        case 'o':
+            o(tovar);
+            break;
+        case 'n':
+            n(tovar, dodavatelia, &prevSize, &nazovTDB, &pcDB, &cenaDB, &hmotnostDB, &menoDDB, &adresaDDB);
+            break;
+        case 's':
+            s(nazovTDB, menoDDB, pcDB, prevSize);
+            break;
+        case 'h':
+            h(pcDB, prevSize);
+            break;
+        case 'p':
+            p(tovar, nazovTDB, &pcDB, cenaDB, hmotnostDB, prevSize);
+            break;
+        case 'z':
+            z(nazovTDB, hmotnostDB, prevSize);
+            break;
+            case 'k':
+                exit = 1;
+                break;
+        }
+    }
 
     //Control
     /*  for (int i = 0; i < prevSize; i++)
@@ -306,6 +458,22 @@ int main()
         
         //printf("Nazov tovaru: %s  Dodavatel: %s Adresa: %s\n", **(*nazovTDB+i), *menoDDB[i], *adresaDDB[i]);
     }*/
-    //s(nazovTDB, pcDB);
-    h(pcDB, prevSize);
+    if(pcDB != NULL){
+        free(pcDB);
+        free(cenaDB);
+        free(hmotnostDB);
+
+        for (int i = 0; i < prevSize; i++){
+            free(nazovTDB[i]);
+            free(menoDDB[i]);
+            free(adresaDDB[i]);
+        }
+
+        free(nazovTDB);
+        free(menoDDB);
+        free(adresaDDB);
+    }
+
+    fclose(dodavatelia);
+    fclose(tovar);
 }
